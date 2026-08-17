@@ -1,0 +1,18 @@
+{
+  "pass": "9995b6aa",
+  "records": [],
+  "weight": [],
+  "types": [
+    "跑步",
+    "骑行",
+    "健身",
+    "游泳",
+    "瑜伽"
+  ],
+  "goal": {
+    "weeklyCount": 4,
+    "weeklyDuration": 240,
+    "monthlyCalories": 4000,
+    "monthlyCount": 16
+  }
+}
