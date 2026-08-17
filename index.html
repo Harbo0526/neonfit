@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#05010f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="NEON FIT">
+<title>NEON FIT · 运动打卡</title>
+<style>
+:root{
+  --cyan:#00f0ff;
+  --pink:#ff2bd6;
+  --purple:#9d4edd;
+  --green:#39ff14;
+  --yellow:#ffe600;
+  --bg-0:#05010f;
+  --bg-1:#0a0420;
+  --bg-2:#120a2e;
+  --line:rgba(0,240,255,.18);
+  --text:#e6f7ff;
+  --muted:#8aa3c7;
+  --glass:rgba(18,10,46,.55);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{
+  font-family:"Segoe UI",-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
+  background:radial-gradient(circle at 20% 0%,#160a3a 0%,var(--bg-0) 60%);
+  color:var(--text);
+  overflow-x:hidden;
+  min-height:100vh;
+}
+#particles{position:fixed;inset:0;z-index:0;pointer-events:none}
+.app{position:relative;z-index:1;display:flex;min-height:100vh}
+
+/* ===== Sidebar (PC) ===== */
+.sidebar{
+  width:230px;flex:0 0 230px;
+  background:linear-gradient(180deg,rgba(18,10,46,.85),rgba(5,1,15,.9));
+  border-right:1px solid var(--line);
+  padding:28px 18px;
+  display:flex;flex-direction:column;gap:10px;
+  backdrop-filter:blur(8px);
+}
+.brand{font-weight:800;font-size:22px;letter-spacing:2px;margin-bottom:26px;
+  background:linear-gradient(90deg,var(--cyan),var(--pink));
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  text-shadow:0 0 18px rgba(0,240,255,.4);
+}
+.brand small{display:block;font-size:10px;letter-spacing:4px;color:var(--muted);-webkit-text-fill-color:var(--muted);margin-top:4px}
+.nav-item{
+  display:flex;align-items:center;gap:12px;
+  padding:13px 16px;border-radius:12px;cursor:pointer;
+  color:var(--muted);font-weight:600;font-size:15px;
+  border:1px solid transparent;transition:.25s;
+}
+.nav-item .ico{width:22px;text-align:center;font-size:18px}
+.nav-item:hover{color:var(--text);background:rgba(0,240,255,.06)}
+.nav-item.active{
+  color:#fff;border-color:var(--line);
+  background:linear-gradient(90deg,rgba(0,240,255,.18),rgba(255,43,214,.12));
+  box-shadow:0 0 18px rgba(0,240,255,.25),inset 0 0 12px rgba(255,43,214,.15);
+}
+.sidebar .foot{margin-top:auto;font-size:11px;color:var(--muted);line-height:1.6}
+
+/* ===== Main ===== */
+.main{flex:1;display:flex;flex-direction:column;min-width:0}
+.topbar{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:18px 26px;border-bottom:1px solid var(--line);
+}
+.topbar h1{font-size:18px;letter-spacing:1px;font-weight:700}
+.topbar .date{font-size:12px;color:var(--muted)}
+.content{padding:26px;flex:1}
+
+.page{display:none}
+.page.active{display:block;animation:pageIn .5s cubic-bezier(.16,1,.3,1)}
+@keyframes pageIn{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
+.reveal{opacity:0;animation:rise .6s forwards}
+@keyframes rise{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:none}}
+
+.grid{display:grid;gap:18px}
+.cards{grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
+.card{
+  background:var(--glass);border:1px solid var(--line);border-radius:16px;
+  padding:20px;position:relative;overflow:hidden;backdrop-filter:blur(6px);
+}
+.card::before{content:"";position:absolute;top:0;left:0;right:0;height:2px;
+  background:linear-gradient(90deg,var(--cyan),var(--pink));opacity:.8}
+.card .label{font-size:12px;color:var(--muted);letter-spacing:1px}
+.card .value{font-size:32px;font-weight:800;margin-top:8px;
+  text-shadow:0 0 14px rgba(0,240,255,.4)}
+.card .value.pink{color:var(--pink);text-shadow:0 0 14px rgba(255,43,214,.4)}
+.card .value.green{color:var(--green);text-shadow:0 0 14px rgba(57,255,20,.4)}
+.card .value.yellow{color:var(--yellow);text-shadow:0 0 14px rgba(255,230,0,.4)}
+.card .sub{font-size:12px;color:var(--muted);margin-top:6px}
+
+.panel{
+  background:var(--glass);border:1px solid var(--line);border-radius:16px;
+  padding:22px;backdrop-filter:blur(6px);
+}
+.panel h3{font-size:15px;letter-spacing:1px;margin-bottom:16px;color:var(--cyan);
+  display:flex;align-items:center;gap:8px}
+.panel h3::before{content:"";width:6px;height:18px;border-radius:3px;
+  background:linear-gradient(var(--cyan),var(--pink))}
+.panel-head{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px}
+.panel-head h3{margin:0}
+
+/* form */
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.field{margin-bottom:16px}
+.field label{display:block;font-size:12px;color:var(--muted);margin-bottom:7px;letter-spacing:1px}
+.field input,.field select,.field textarea{
+  width:100%;padding:12px 14px;border-radius:10px;
+  background:rgba(5,1,15,.6);border:1px solid var(--line);color:var(--text);
+  font-size:14px;outline:none;transition:.2s;font-family:inherit;
+}
+.field input:focus,.field select:focus,.field textarea:focus{
+  border-color:var(--cyan);box-shadow:0 0 14px rgba(0,240,255,.3)}
+.field textarea{resize:vertical;min-height:70px}
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  padding:13px 24px;border:none;border-radius:12px;cursor:pointer;
+  font-size:15px;font-weight:700;letter-spacing:1px;color:#05010f;
+  background:linear-gradient(90deg,var(--cyan),var(--pink));
+  box-shadow:0 0 20px rgba(0,240,255,.35);transition:.2s;
+}
+.btn:hover{transform:translateY(-2px);box-shadow:0 0 30px rgba(255,43,214,.5)}
+.btn:active{transform:translateY(0)}
+.btn.ghost{background:transparent;color:var(--cyan);border:1px solid var(--line);box-shadow:none}
+.btn.danger{background:linear-gradient(90deg,#ff4d6d,#ff2bd6);color:#fff}
+
+/* segmented control */
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.seg-btn{padding:8px 20px;background:transparent;border:none;color:var(--muted);
+  cursor:pointer;font-size:13px;font-weight:600;transition:.2s}
+.seg-btn.active{background:linear-gradient(90deg,rgba(0,240,255,.22),rgba(255,43,214,.15));
+  color:#fff;text-shadow:0 0 10px rgba(0,240,255,.5)}
+
+/* goal progress */
+.goal-row{margin:13px 0}
+.goal-row .top{display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px;color:var(--muted)}
+.goal-row .top b{font-size:13px;color:var(--text)}
+.bar{height:9px;border-radius:6px;background:rgba(255,255,255,.07);overflow:hidden}
+.bar .fill{height:100%;border-radius:6px;background:linear-gradient(90deg,var(--cyan),var(--pink));
+  box-shadow:0 0 12px rgba(0,240,255,.5);transition:width .7s cubic-bezier(.16,1,.3,1)}
+.bar .fill.done{background:linear-gradient(90deg,var(--green),var(--cyan));box-shadow:0 0 12px rgba(57,255,20,.5)}
+
+/* table */
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{padding:12px 10px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap}
+th{color:var(--muted);font-weight:600;letter-spacing:1px;font-size:11px}
+tbody tr:hover{background:rgba(0,240,255,.05)}
+.tag{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;
+  background:rgba(0,240,255,.15);color:var(--cyan);border:1px solid var(--line)}
+.del{color:#ff4d6d;cursor:pointer;border:none;background:none;font-size:14px}
+
+/* charts */
+.charts-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:18px;margin-top:18px}
+.chart-box{position:relative;height:260px}
+canvas.chart{width:100%;height:100%}
+
+.toast{
+  position:fixed;left:50%;bottom:90px;transform:translateX(-50%) translateY(20px);
+  background:rgba(5,1,15,.92);border:1px solid var(--cyan);color:var(--text);
+  padding:12px 22px;border-radius:30px;font-size:13px;z-index:99;
+  box-shadow:0 0 24px rgba(0,240,255,.4);opacity:0;transition:.35s;pointer-events:none}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+.empty{text-align:center;color:var(--muted);padding:40px 0;font-size:14px}
+
+/* ===== Bottom Tab (Mobile) ===== */
+.bottom-tab{
+  display:none;position:fixed;bottom:0;left:0;right:0;z-index:50;
+  background:rgba(5,1,15,.92);backdrop-filter:blur(10px);
+  border-top:1px solid var(--line);
+  grid-template-columns:repeat(4,1fr);
+}
+.bottom-tab .tab{
+  padding:10px 0 12px;text-align:center;color:var(--muted);cursor:pointer;font-size:11px;
+  display:flex;flex-direction:column;align-items:center;gap:4px;transition:.2s}
+.bottom-tab .tab .ico{font-size:20px}
+.bottom-tab .tab.active{color:var(--cyan);text-shadow:0 0 12px rgba(0,240,255,.6)}
+
+/* install banner */
+.install-bar{
+  display:none;align-items:center;gap:12px;margin:0 26px 18px;
+  padding:12px 18px;border-radius:12px;border:1px solid var(--line);
+  background:linear-gradient(90deg,rgba(0,240,255,.12),rgba(255,43,214,.1))}
+.install-bar span{flex:1;font-size:13px}
+.install-bar button{padding:8px 16px;font-size:13px}
+
+@media(max-width:768px){
+  .sidebar{display:none}
+  .content{padding:18px 16px 90px}
+  .form-row{grid-template-columns:1fr}
+  .topbar{padding:14px 18px}
+  .topbar h1{font-size:16px}
+  .bottom-tab{display:grid}
+  .card .value{font-size:26px}
+  .chart-box{height:230px}
+  .toast{bottom:80px}
+  .install-bar{margin:0 16px 14px}
+}
+</style>
+</head>
+<body>
+<canvas id="particles"></canvas>
+
+<div class="app">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="brand">NEON FIT<small>FITNESS · TRACKER</small></div>
+    <div class="nav-item active" data-page="home"><span class="ico">◆</span><span>首页</span></div>
+    <div class="nav-item" data-page="checkin"><span class="ico">✚</span><span>打卡</span></div>
+    <div class="nav-item" data-page="dashboard"><span class="ico">◈</span><span>数据看板</span></div>
+    <div class="nav-item" data-page="history"><span class="ico">☰</span><span>历史记录</span></div>
+    <div class="foot">本地存储 · 离线可用<br>数据仅保存在此设备浏览器</div>
+  </aside>
+
+  <!-- Main -->
+  <div class="main">
+    <div class="topbar">
+      <h1 id="pageTitle">首页</h1>
+      <div class="date" id="todayDate"></div>
+    </div>
+    <div class="content">
+
+      <!-- HOME -->
+      <section class="page active" id="page-home">
+        <div class="grid cards" id="homeCards"></div>
+        <div class="panel reveal" style="animation-delay:.15s;margin-top:18px">
+          <h3>🎯 我的目标</h3>
+          <div id="goalBars"></div>
+          <button class="btn ghost" id="editGoalBtn" style="margin-top:14px">⚙ 设定目标</button>
+          <form id="goalForm" style="display:none;margin-top:14px">
+            <div class="form-row">
+              <div class="field"><label>每周运动次数</label><input type="number" id="g-weeklyCount" min="0"></div>
+              <div class="field"><label>每周时长（分钟）</label><input type="number" id="g-weeklyDuration" min="0"></div>
+            </div>
+            <div class="form-row">
+              <div class="field"><label>每月消耗（千卡）</label><input type="number" id="g-monthlyCalories" min="0"></div>
+              <div class="field"><label>每月运动次数</label><input type="number" id="g-monthlyCount" min="0"></div>
+            </div>
+            <button class="btn" type="submit">保存目标</button>
+          </form>
+        </div>
+        <div class="panel reveal" style="animation-delay:.3s;margin-top:18px">
+          <h3>⚖ 体重记录</h3>
+          <div id="homeWeight"></div>
+        </div>
+        <div class="panel reveal" style="animation-delay:.45s;margin-top:18px">
+          <h3>最近动态</h3>
+          <div id="homeRecent"></div>
+        </div>
+      </section>
+
+      <!-- CHECKIN -->
+      <section class="page" id="page-checkin">
+        <div class="panel reveal">
+          <h3>今日打卡</h3>
+          <form id="checkinForm">
+            <div class="field">
+              <label>运动名称（可自定义，也可从下拉选常用）</label>
+              <input id="f-type" list="typeList" required placeholder="例如 跑步 / 跳绳 / 羽毛球" autocomplete="off">
+              <datalist id="typeList"></datalist>
+            </div>
+            <div class="form-row">
+              <div class="field">
+                <label>今日体重（kg，可选）</label>
+                <input type="number" id="f-weight" min="20" max="300" step="0.1" placeholder="例如 65.5">
+              </div>
+              <div class="field">
+                <label>体重记录日期</label>
+                <input type="date" id="f-weight-date">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="field">
+                <label>时长（分钟）</label>
+                <input type="number" id="f-duration" min="1" max="600" required placeholder="例如 45">
+              </div>
+              <div class="field">
+                <label>消耗（千卡）</label>
+                <input type="number" id="f-calories" min="0" placeholder="留空自动估算">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="field">
+                <label>距离（公里，可选）</label>
+                <input type="number" id="f-distance" min="0" step="0.1" placeholder="例如 5.0">
+              </div>
+              <div class="field">
+                <label>日期</label>
+                <input type="date" id="f-date" required>
+              </div>
+            </div>
+            <div class="field">
+              <label>备注（可选）</label>
+              <textarea id="f-note" placeholder="今天的状态、感受…"></textarea>
+            </div>
+            <button class="btn" type="submit">⚡ 提交打卡</button>
+          </form>
+        </div>
+      </section>
+
+      <!-- DASHBOARD -->
+      <section class="page" id="page-dashboard">
+        <div class="panel reveal">
+          <div class="panel-head">
+            <h3>统计概览</h3>
+            <div class="seg" id="rangeSeg">
+              <button class="seg-btn active" data-range="week">本周</button>
+              <button class="seg-btn" data-range="month">本月</button>
+            </div>
+          </div>
+          <div class="grid cards" id="dashCards" style="margin-top:16px"></div>
+          <div id="goalBarsDash" style="margin-top:18px"></div>
+        </div>
+        <div class="charts-grid">
+          <div class="panel">
+            <h3 id="trendTitle">近 7 天 消耗趋势</h3>
+            <div class="chart-box"><canvas class="chart" id="chartTrend"></canvas></div>
+          </div>
+          <div class="panel">
+            <h3 id="weightTitle">体重变化曲线</h3>
+            <div class="chart-box"><canvas class="chart" id="chartWeight"></canvas></div>
+          </div>
+          <div class="panel">
+            <h3 id="barTitle">近 7 天 时长对比</h3>
+            <div class="chart-box"><canvas class="chart" id="chartBar"></canvas></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- HISTORY -->
+      <section class="page" id="page-history">
+        <div class="panel reveal">
+          <h3>全部记录</h3>
+          <div style="margin-bottom:14px;display:flex;gap:10px;flex-wrap:wrap">
+            <button class="btn ghost" id="exportBtn">⬇ 导出 JSON</button>
+            <button class="btn ghost" id="importBtn">⬆ 导入 JSON</button>
+            <button class="btn danger" id="clearBtn">🗑 清空全部</button>
+          </div>
+          <input type="file" id="importFile" accept="application/json,.json" style="display:none">
+          <div class="table-wrap"><table id="historyTable">
+            <thead><tr>
+              <th>日期</th><th>类型</th><th>时长</th><th>消耗</th><th>距离</th><th>备注</th><th></th>
+            </tr></thead>
+            <tbody id="historyBody"></tbody>
+          </table></div>
+          <div class="empty" id="historyEmpty" style="display:none">还没有打卡记录，去「打卡」页开始吧 🚀</div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+</div>
+
+<!-- Install banner (PWA) -->
+<div class="install-bar" id="installBar">
+  <span>📲 可安装为 App，离线随时随地打卡</span>
+  <button class="btn" id="installBtn">安装</button>
+  <button class="btn ghost" id="installClose">✕</button>
+</div>
+
+<!-- Bottom Tab -->
+<nav class="bottom-tab">
+  <div class="tab active" data-page="home"><span class="ico">◆</span>首页</div>
+  <div class="tab" data-page="checkin"><span class="ico">✚</span>打卡</div>
+  <div class="tab" data-page="dashboard"><span class="ico">◈</span>看板</div>
+  <div class="tab" data-page="history"><span class="ico">☰</span>记录</div>
+</nav>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============ 粒子背景 ============ */
+(function(){
+  const c=document.getElementById('particles'),x=c.getContext('2d');
+  let w,h,pts;const COLORS=['#00f0ff','#ff2bd6','#9d4edd','#39ff14'];
+  function resize(){w=c.width=innerWidth;h=c.height=innerHeight;
+    const n=Math.min(90,Math.floor(w*h/16000));
+    pts=Array.from({length:n},()=>({x:Math.random()*w,y:Math.random()*h,
+      vx:(Math.random()-.5)*.5,vy:(Math.random()-.5)*.5,
+      r:Math.random()*1.8+.6,c:COLORS[Math.floor(Math.random()*COLORS.length)]}));}
+  function draw(){
+    x.clearRect(0,0,w,h);
+    for(const p of pts){
+      p.x+=p.vx;p.y+=p.vy;
+      if(p.x<0||p.x>w)p.vx*=-1;if(p.y<0||p.y>h)p.vy*=-1;
+      x.beginPath();x.arc(p.x,p.y,p.r,0,7);x.fillStyle=p.c;
+      x.shadowBlur=12;x.shadowColor=p.c;x.fill();
+    }
+    x.shadowBlur=8;
+    for(let i=0;i<pts.length;i++)for(let j=i+1;j<pts.length;j++){
+      const a=pts[i],b=pts[j],dx=a.x-b.x,dy=a.y-b.y,d=Math.hypot(dx,dy);
+      if(d<120){x.beginPath();x.moveTo(a.x,a.y);x.lineTo(b.x,b.y);
+        x.strokeStyle='rgba(0,240,255,'+(.12*(1-d/120))+')';x.lineWidth=1;x.stroke();}
+    }
+    requestAnimationFrame(draw);
+  }
+  addEventListener('resize',resize);resize();draw();
+})();
+
+/* ============ 工具 ============ */
+const DEF_TYPES=['跑步','骑行','健身','游泳','瑜伽'];
+const TYPE_COLOR={跑步:'#00f0ff',骑行:'#9d4edd',健身:'#39ff14',游泳:'#ffe600',瑜伽:'#ff2bd6'};
+const PAL2=['#00f0ff','#ff2bd6','#9d4edd','#39ff14','#ffe600','#ff7b00','#00ffa3','#7afcff'];
+function colorFor(t){return TYPE_COLOR[t]||PAL2[[...t].reduce((s,c)=>s+c.charCodeAt(0),0)%PAL2.length];}
+function tagClass(t){return 't-custom';}
+function fmtDate(d){const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),da=String(d.getDate()).padStart(2,'0');return `${y}-${m}-${da}`;}
+function sumDur(a){return a.reduce((s,r)=>s+(+r.duration||0),0);}
+function sumCal(a){return a.reduce((s,r)=>s+(+r.calories||0),0);}
+
+/* ============ 数据存储 ============ */
+const KEY='neonfit_records_v1';
+const KEY_W='neonfit_weight_v1';
+const KEY_TYPES='neonfit_types_v1';
+function load(){try{return JSON.parse(localStorage.getItem(KEY))||[]}catch(e){return[]}}
+function save(a){localStorage.setItem(KEY,JSON.stringify(a))}
+function loadWeight(){try{return JSON.parse(localStorage.getItem(KEY_W))||[]}catch(e){return[]}}
+function saveWeight(a){localStorage.setItem(KEY_W,JSON.stringify(a))}
+function loadTypes(){try{const t=JSON.parse(localStorage.getItem(KEY_TYPES));return Array.isArray(t)&&t.length?t:DEF_TYPES.slice();}catch(e){return DEF_TYPES.slice();}}
+function saveTypes(a){const uniq=[...new Set(a)].filter(Boolean);localStorage.setItem(KEY_TYPES,JSON.stringify(uniq));}
+
+const DEF_GOAL={weeklyCount:4,weeklyDuration:240,monthlyCalories:4000,monthlyCount:16};
+function loadGoal(){try{return Object.assign({},DEF_GOAL,JSON.parse(localStorage.getItem('neonfit_goal')||'{}'));}catch(e){return Object.assign({},DEF_GOAL);}}
+function saveGoal(g){localStorage.setItem('neonfit_goal',JSON.stringify(g));}
+
+/* 范围过滤：本周(周一~)/本月(1号~) */
+function rangeStart(range){
+  const now=new Date();
+  if(range==='week'){const day=(now.getDay()+6)%7;const mon=new Date(now);mon.setDate(now.getDate()-day);mon.setHours(0,0,0,0);return fmtDate(mon);}
+  return fmtDate(new Date(now.getFullYear(),now.getMonth(),1));
+}
+function recsInRange(recs,range){const s=rangeStart(range);return recs.filter(r=>r.date>=s);}
+function lastN(n){const t=new Date(),a=[];for(let i=n-1;i>=0;i--){const d=new Date(t);d.setDate(t.getDate()-i);a.push(fmtDate(d));}return a;}
+
+/* ============ 轻量霓虹图表引擎 ============ */
+const NeonChart={
+  _setup(cv){const dpr=window.devicePixelRatio||1,r=cv.getBoundingClientRect();
+    cv.width=r.width*dpr;cv.height=r.height*dpr;const ctx=cv.getContext('2d');ctx.scale(dpr,dpr);return{ctx,w:r.width,h:r.height};},
+  line(cv,labels,values,color){
+    const {ctx,w,h}=this._setup(cv);ctx.clearRect(0,0,w,h);
+    const pad=34,max=Math.max(...values,1);
+    const X=i=>pad+(w-pad*1.4)*(i/(labels.length-1||1));
+    const Y=v=>h-pad-(h-pad*1.6)*((v)/(max||1));
+    ctx.strokeStyle='rgba(0,240,255,.08)';ctx.lineWidth=1;
+    for(let i=0;i<=4;i++){const y=pad+(h-pad*1.6)*i/4;ctx.beginPath();ctx.moveTo(pad,y);ctx.lineTo(w-pad*.4,y);ctx.stroke();}
+    const grad=ctx.createLinearGradient(0,pad,0,h-pad);grad.addColorStop(0,color+'55');grad.addColorStop(1,color+'00');
+    ctx.beginPath();ctx.moveTo(X(0),Y(values[0]));values.forEach((v,i)=>ctx.lineTo(X(i),Y(v)));
+    ctx.lineTo(X(labels.length-1),h-pad);ctx.lineTo(X(0),h-pad);ctx.closePath();ctx.fillStyle=grad;ctx.fill();
+    ctx.beginPath();ctx.moveTo(X(0),Y(values[0]));values.forEach((v,i)=>ctx.lineTo(X(i),Y(v)));
+    ctx.strokeStyle=color;ctx.lineWidth=2.5;ctx.shadowBlur=14;ctx.shadowColor=color;ctx.stroke();ctx.shadowBlur=0;
+    values.forEach((v,i)=>{ctx.beginPath();ctx.arc(X(i),Y(v),3.5,0,7);ctx.fillStyle='#05010f';ctx.fill();
+      ctx.beginPath();ctx.arc(X(i),Y(v),3.5,0,7);ctx.strokeStyle=color;ctx.lineWidth=2;ctx.stroke();});
+    ctx.fillStyle='#8aa3c7';ctx.font='11px sans-serif';ctx.textAlign='center';
+    labels.forEach((l,i)=>{if(l)ctx.fillText(l,X(i),h-12);});
+  },
+  bar(cv,labels,values,color){
+    const {ctx,w,h}=this._setup(cv);ctx.clearRect(0,0,w,h);
+    const pad=34,max=Math.max(...values,1);
+    const slot=(w-pad*1.4)/labels.length,bw=slot*.6;
+    ctx.strokeStyle='rgba(0,240,255,.08)';ctx.lineWidth=1;
+    for(let i=0;i<=4;i++){const y=pad+(h-pad*1.6)*i/4;ctx.beginPath();ctx.moveTo(pad,y);ctx.lineTo(w-pad*.4,y);ctx.stroke();}
+    labels.forEach((l,i)=>{
+      const bh=(h-pad*1.6)*(values[i]/max);const x=pad+slot*i+slot*.2;const y=h-pad-bh;
+      const g=ctx.createLinearGradient(0,y,0,h-pad);g.addColorStop(0,color);g.addColorStop(1,color+'22');
+      ctx.fillStyle=g;ctx.shadowBlur=12;ctx.shadowColor=color;this._round(ctx,x,y,bw,bh,5);ctx.fill();ctx.shadowBlur=0;
+      if(l){ctx.fillStyle='#8aa3c7';ctx.font='11px sans-serif';ctx.textAlign='center';ctx.fillText(l,x+bw/2,h-12);}
+      ctx.fillStyle='#e6f7ff';ctx.fillText(values[i],x+bw/2,y-6);
+    });
+  },
+  doughnut(cv,labels,values,colors){
+    const {ctx,w,h}=this._setup(cv);ctx.clearRect(0,0,w,h);
+    const cx=w/2,cy=h/2,R=Math.min(w,h)/2-20,r=R*.58;
+    const tot=values.reduce((a,b)=>a+b,0)||1;let a0=-Math.PI/2;
+    values.forEach((v,i)=>{const a1=a0+2*Math.PI*v/tot;
+      ctx.beginPath();ctx.moveTo(cx,cy);ctx.arc(cx,cy,R,a0,a1);ctx.closePath();
+      ctx.fillStyle=colors[i];ctx.shadowBlur=14;ctx.shadowColor=colors[i];ctx.fill();ctx.shadowBlur=0;a0=a1;});
+    ctx.beginPath();ctx.arc(cx,cy,r,0,7);ctx.fillStyle='rgba(5,1,15,.9)';ctx.fill();
+    ctx.fillStyle='#e6f7ff';ctx.textAlign='center';ctx.font='700 20px sans-serif';
+    ctx.fillText(tot,cx,cy-4);ctx.fillStyle='#8aa3c7';ctx.font='11px sans-serif';ctx.fillText('总次数',cx,cy+14);
+    ctx.font='11px sans-serif';ctx.textAlign='left';
+    labels.forEach((l,i)=>{const ly=18+i*18;ctx.fillStyle=colors[i];ctx.fillRect(8,ly-9,10,10);
+      ctx.fillStyle='#e6f7ff';ctx.fillText(l,24,ly);ctx.fillStyle='#8aa3c7';ctx.textAlign='right';ctx.fillText(values[i]+'次',w-8,ly);ctx.textAlign='left';});
+  },
+  _round(ctx,x,y,w,h,r){r=Math.min(r,w/2,h/2);if(r<0)r=0;ctx.beginPath();
+    ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);
+    ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+};
+
+/* ============ 导航 ============ */
+const TITLES={home:'首页',checkin:'打卡',dashboard:'数据看板',history:'历史记录'};
+function navigate(page){
+  document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active',p.id==='page-'+page));
+  document.querySelectorAll('.nav-item,.tab').forEach(n=>n.classList.toggle('active',n.dataset.page===page));
+  document.getElementById('pageTitle').textContent=TITLES[page];
+  if(page==='dashboard')renderDashboard();
+  if(page==='history')renderHistory();
+  if(page==='home')renderHome();
+}
+document.querySelectorAll('.nav-item,.tab').forEach(n=>n.addEventListener('click',()=>navigate(n.dataset.page)));
+
+/* ============ 目标进度条 ============ */
+function goalBarHTML(label,cur,goal,unit){
+  const pct=goal>0?Math.min(100,Math.round(cur/goal*100)):0;
+  const done=goal>0&&cur>=goal;
+  return `<div class="goal-row"><div class="top"><span>${label}</span>
+    <b style="color:${done?'var(--green)':'var(--text)'}">${cur} / ${goal} ${unit} ${done?'✓':''}</b></div>
+    <div class="bar"><div class="fill ${done?'done':''}" style="width:${pct}%"></div></div></div>`;
+}
+function renderGoal(containerId,list){
+  document.getElementById(containerId).innerHTML=list.length?list.map(g=>goalBarHTML(g.label,g.cur,g.goal,g.unit)).join(''):'<div class="empty">暂无目标</div>';
+}
+
+/* ============ 首页 ============ */
+function streakDays(recs){
+  if(!recs.length)return 0;
+  const set=new Set(recs.map(r=>r.date));let s=0;let d=new Date();
+  if(!set.has(fmtDate(d))){d.setDate(d.getDate()-1);if(!set.has(fmtDate(d)))return 0;}
+  while(set.has(fmtDate(d))){s++;d.setDate(d.getDate()-1);}
+  return s;
+}
+function renderHome(){
+  const recs=load();
+  const totalDur=sumDur(recs),totalCal=sumCal(recs);
+  const w=loadWeight();
+  const latestW=w.length?w[w.length-1].weight:null;
+  const cards=[
+    {label:'累计打卡',value:recs.length,sub:'次',cls:''},
+    {label:'连续打卡',value:streakDays(recs),sub:'天',cls:'pink'},
+    {label:'总时长',value:totalDur,sub:'分钟',cls:'green'},
+    {label:'最新体重',value:latestW!=null?latestW:'—',sub:latestW!=null?'kg':'未记录',cls:'yellow'},
+  ];
+  document.getElementById('homeCards').innerHTML=cards.map((c,i)=>
+    `<div class="card reveal" style="animation-delay:${i*.08}s"><div class="label">${c.label}</div>
+     <div class="value ${c.cls}">${c.value}</div><div class="sub">${c.sub}</div></div>`).join('');
+  const g=loadGoal();
+  const weekR=recsInRange(recs,'week'),monthR=recsInRange(recs,'month');
+  renderGoal('goalBars',[
+    {label:'本周运动次数',cur:weekR.length,goal:g.weeklyCount,unit:'次'},
+    {label:'本周时长',cur:sumDur(weekR),goal:g.weeklyDuration,unit:'分'},
+    {label:'本月消耗',cur:sumCal(monthR),goal:g.monthlyCalories,unit:'千卡'},
+    {label:'本月运动次数',cur:monthR.length,goal:g.monthlyCount,unit:'次'},
+  ]);
+  // 体重面板
+  const wbox=document.getElementById('homeWeight');
+  if(w.length){
+    const wd=w.map(x=>x.date.slice(5)),wv=w.map(x=>x.weight);
+    const chg=(w[w.length-1].weight-w[0].weight);
+    wbox.innerHTML=`<div style="font-size:12px;color:var(--muted);margin-bottom:8px">共 ${w.length} 条 · 较首次 ${chg>=0?'+':''}${chg.toFixed(1)} kg</div>
+      <div class="chart-box" style="height:200px"><canvas class="chart" id="homeWeightChart"></canvas></div>`;
+    NeonChart.line(document.getElementById('homeWeightChart'),wd,wv,'#39ff14');
+  }else wbox.innerHTML='<div class="empty">还没有体重记录，去「打卡」页记一下 📉</div>';
+  const recent=recs.slice(-5).reverse();
+  document.getElementById('homeRecent').innerHTML=recent.length?
+    recent.map(r=>`<div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--line)">
+      <span><span class="tag ${tagClass(r.type)}" style="color:${colorFor(r.type)};border-color:${colorFor(r.type)}55">${r.type}</span> <span style="color:var(--muted);font-size:12px">${r.date}</span></span>
+      <span style="font-size:13px">${r.duration}分钟 · ${r.calories}千卡</span></div>`).join('')
+    :'<div class="empty">还没有记录，快去打卡 💪</div>';
+}
+
+/* ============ 目标编辑 ============ */
+const goalForm=document.getElementById('goalForm');
+document.getElementById('editGoalBtn').addEventListener('click',()=>{
+  const g=loadGoal();
+  document.getElementById('g-weeklyCount').value=g.weeklyCount;
+  document.getElementById('g-weeklyDuration').value=g.weeklyDuration;
+  document.getElementById('g-monthlyCalories').value=g.monthlyCalories;
+  document.getElementById('g-monthlyCount').value=g.monthlyCount;
+  goalForm.style.display=goalForm.style.display==='none'?'block':'none';
+});
+goalForm.addEventListener('submit',e=>{
+  e.preventDefault();
+  saveGoal({weeklyCount:+document.getElementById('g-weeklyCount').value||0,
+    weeklyDuration:+document.getElementById('g-weeklyDuration').value||0,
+    monthlyCalories:+document.getElementById('g-monthlyCalories').value||0,
+    monthlyCount:+document.getElementById('g-monthlyCount').value||0});
+  goalForm.style.display='none';
+  renderHome();toast('🎯 目标已更新');
+});
+
+/* ============ 打卡表单 ============ */
+document.getElementById('f-date').value=fmtDate(new Date());
+document.getElementById('f-weight-date').value=fmtDate(new Date());
+function refreshTypeList(){
+  document.getElementById('typeList').innerHTML=loadTypes().map(t=>`<option value="${t}">`).join('');
+}
+refreshTypeList();
+document.getElementById('checkinForm').addEventListener('submit',e=>{
+  e.preventDefault();
+  const type=document.getElementById('f-type').value.trim();
+  if(!type){toast('⚠ 请填写运动名称');return;}
+  const duration=+document.getElementById('f-duration').value;
+  let calories=+document.getElementById('f-calories').value;
+  if(!calories)calories=Math.round(duration*6.5);
+  const distance=document.getElementById('f-distance').value;
+  const date=document.getElementById('f-date').value;
+  const note=document.getElementById('f-note').value.trim();
+  const recs=load();
+  recs.push({id:Date.now(),type,duration,calories,distance:distance||0,date,note});
+  save(recs);
+  saveTypes([...loadTypes(),type]);
+  // 体重记录
+  const wv=document.getElementById('f-weight').value;
+  if(wv){
+    const wd=document.getElementById('f-weight-date').value||fmtDate(new Date());
+    const w=loadWeight().filter(x=>x.date!==wd);
+    w.push({date:wd,weight:+wv});w.sort((a,b)=>a.date.localeCompare(b.date));
+    saveWeight(w);
+  }
+  toast('✅ 打卡成功！消耗 '+calories+' 千卡'+(wv?' · 体重已记录':''));
+  e.target.reset();document.getElementById('f-date').value=fmtDate(new Date());
+  document.getElementById('f-weight-date').value=fmtDate(new Date());
+  refreshTypeList();renderHome();
+});
+
+/* ============ 数据看板（周/月切换） ============ */
+let currentRange='week';
+const PAL=['#00f0ff','#ff2bd6','#9d4edd','#39ff14','#ffe600'];
+document.querySelectorAll('#rangeSeg .seg-btn').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('#rangeSeg .seg-btn').forEach(x=>x.classList.toggle('active',x===b));
+  currentRange=b.dataset.range;renderDashboard();
+}));
+function renderDashboard(){
+  const range=currentRange;
+  const all=load();
+  const rng=recsInRange(all,range);
+  const cnt=rng.length,dur=sumDur(rng),cal=sumCal(rng),days=new Set(rng.map(r=>r.date)).size;
+  const word=range==='week'?'本周':'本月';
+  document.getElementById('dashCards').innerHTML=[
+    {label:word+'次数',value:cnt,sub:'次',cls:''},
+    {label:word+'时长',value:dur,sub:'分钟',cls:'green'},
+    {label:word+'消耗',value:cal,sub:'千卡',cls:'yellow'},
+    {label:word+'活跃天',value:days,sub:'天',cls:'pink'},
+  ].map(c=>`<div class="card"><div class="label">${c.label}</div>
+     <div class="value ${c.cls}">${c.value}</div><div class="sub">${c.sub}</div></div>`).join('');
+  const g=loadGoal();
+  const dashGoals=range==='week'?[
+    {label:'周运动次数',cur:cnt,goal:g.weeklyCount,unit:'次'},
+    {label:'周时长',cur:dur,goal:g.weeklyDuration,unit:'分'},
+  ]:[
+    {label:'月消耗',cur:cal,goal:g.monthlyCalories,unit:'千卡'},
+    {label:'月次数',cur:cnt,goal:g.monthlyCount,unit:'次'},
+  ];
+  renderGoal('goalBarsDash',dashGoals);
+
+  const n=range==='week'?7:30;
+  const daysArr=lastN(n);
+  const labelsFull=daysArr.map(d=>d.slice(5));
+  const calByDay=daysArr.map(d=>all.filter(r=>r.date===d).reduce((s,r)=>s+(+r.calories||0),0));
+  const durByDay=daysArr.map(d=>all.filter(r=>r.date===d).reduce((s,r)=>s+(+r.duration||0),0));
+  const step=range==='month'?5:1;
+  const labels=labelsFull.map((l,i)=>i%step===0?l:'');
+  document.getElementById('trendTitle').textContent=(range==='week'?'近 7 天':'近 30 天')+' 消耗趋势';
+  document.getElementById('barTitle').textContent=(range==='week'?'近 7 天':'近 30 天')+' 时长对比';
+  NeonChart.line(document.getElementById('chartTrend'),labels,calByDay,'#00f0ff');
+  NeonChart.bar(document.getElementById('chartBar'),labels,durByDay,'#ff2bd6');
+  // 体重曲线（取范围内记录的体重，按日期排序）
+  const wAll=loadWeight();
+  const wIn=wAll.filter(x=>x.date>=rangeStart(range));
+  const cvW=document.getElementById('chartWeight');
+  if(wIn.length){
+    const wl=wIn.map(x=>x.date.slice(5)),wv=wIn.map(x=>x.weight);
+    const chg=wIn[wIn.length-1].weight-wIn[0].weight;
+    const scope=range==='week'?'本周':'本月';
+    document.getElementById('weightTitle').textContent='体重变化曲线（'+scope+'）共'+wIn.length+'条 · 较期初 '+(chg>=0?'+':'')+chg.toFixed(1)+'kg';
+    NeonChart.line(cvW,wl,wv,'#39ff14');
+  }else{const{ctx,w,h}=NeonChart._setup(cvW);
+    ctx.fillStyle='#8aa3c7';ctx.font='13px sans-serif';ctx.textAlign='center';ctx.fillText('暂无体重数据',w/2,h/2);}
+}
+
+/* ============ 历史记录 ============ */
+function renderHistory(){
+  const recs=load().slice().sort((a,b)=>b.date.localeCompare(a.date)||b.id-a.id);
+  const body=document.getElementById('historyBody');
+  document.getElementById('historyEmpty').style.display=recs.length?'none':'block';
+  body.innerHTML=recs.map(r=>`<tr>
+    <td>${r.date}</td>
+    <td><span class="tag ${tagClass(r.type)}" style="color:${colorFor(r.type)};border-color:${colorFor(r.type)}55">${r.type}</span></td>
+    <td>${r.duration} 分</td>
+    <td>${r.calories} 千卡</td>
+    <td>${r.distance?r.distance+' km':'—'}</td>
+    <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis">${r.note||'—'}</td>
+    <td><button class="del" data-id="${r.id}">✕</button></td></tr>`).join('');
+  body.querySelectorAll('.del').forEach(b=>b.addEventListener('click',()=>{
+    const id=+b.dataset.id;save(load().filter(r=>r.id!==id));
+    renderHistory();renderHome();toast('已删除一条记录');
+  }));
+}
+document.getElementById('clearBtn').addEventListener('click',()=>{
+  if(confirm('确定清空全部？将同时删除打卡记录与体重记录，不可恢复。')){
+    save([]);saveWeight([]);saveTypes(DEF_TYPES.slice());renderHistory();renderHome();refreshTypeList();toast('已清空全部记录');}
+});
+document.getElementById('exportBtn').addEventListener('click',()=>{
+  const data=JSON.stringify({records:load(),weight:loadWeight(),types:loadTypes()},null,2);
+  const blob=new Blob([data],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download='neonfit_'+fmtDate(new Date())+'.json';a.click();toast('已导出 JSON（含体重）');
+});
+document.getElementById('importBtn').addEventListener('click',()=>document.getElementById('importFile').click());
+document.getElementById('importFile').addEventListener('change',e=>{
+  const file=e.target.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=()=>{
+    try{
+      const parsed=JSON.parse(reader.result);
+      const arr=Array.isArray(parsed)?parsed:(parsed.records||[]);
+      if(!Array.isArray(arr))throw new Error('格式错误');
+      const cur=load();
+      const map=new Map(cur.map(r=>[r.id,r]));
+      let added=0,dup=0;
+      arr.forEach(r=>{
+        if(r&&r.id&&!map.has(r.id)){cur.push(r);map.set(r.id,r);added++;}
+        else if(r&&r.id&&map.has(r.id))dup++;
+      });
+      save(cur);
+      // 体重合并（按日期去重）
+      let wAdded=0;
+      if(parsed.weight&&Array.isArray(parsed.weight)){
+        const wm=new Map(loadWeight().map(x=>[x.date,x]));
+        parsed.weight.forEach(x=>{if(x&&x.date&&!wm.has(x.date)){wm.set(x.date,x);wAdded++;}});
+        const w=[...wm.values()].sort((a,b)=>a.date.localeCompare(b.date));saveWeight(w);
+      }
+      if(parsed.types&&Array.isArray(parsed.types))saveTypes([...loadTypes(),...parsed.types]);
+      refreshTypeList();renderHistory();renderHome();
+      toast('已导入：打卡 '+added+' 条'+(wAdded?('，体重 '+wAdded+' 条'):'')+(dup?('，跳过重复 '+dup+' 条'):''));
+    }catch(err){toast('⚠ 文件格式不正确');}
+    e.target.value='';
+  };
+  reader.readAsText(file);
+});
+
+/* ============ Toast ============ */
+let tT;function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');
+  clearTimeout(tT);tT=setTimeout(()=>t.classList.remove('show'),2200);}
+
+/* ============ PWA: 运行时生成 manifest ============ */
+(function(){
+  const iconSVG='<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192"><rect width="192" height="192" rx="42" fill="#05010f"/><text x="50%" y="60%" font-size="86" text-anchor="middle" fill="#00f0ff" font-family="sans-serif" font-weight="bold">NF</text></svg>';
+  const manifest={name:'NEON FIT 运动打卡',short_name:'NEONFIT',start_url:'.',display:'standalone',
+    background_color:'#05010f',theme_color:'#00f0ff',
+    icons:[{src:'data:image/svg+xml,'+encodeURIComponent(iconSVG),sizes:'192x192',type:'image/svg+xml'},
+           {src:'data:image/svg+xml,'+encodeURIComponent(iconSVG),sizes:'512x512',type:'image/svg+xml'}]};
+  const link=document.createElement('link');link.rel='manifest';
+  link.href='data:application/manifest+json,'+encodeURIComponent(JSON.stringify(manifest));
+  document.head.appendChild(link);
+})();
+
+/* ============ PWA: 安装提示 + Service Worker ============ */
+let deferredPrompt=null;
+const installBar=document.getElementById('installBar');
+window.addEventListener('beforeinstallprompt',e=>{
+  e.preventDefault();deferredPrompt=e;
+  if(!localStorage.getItem('neonfit_install_dismiss'))installBar.style.display='flex';
+});
+document.getElementById('installClose').addEventListener('click',()=>{
+  installBar.style.display='none';localStorage.setItem('neonfit_install_dismiss','1');
+});
+document.getElementById('installBtn').addEventListener('click',async()=>{
+  if(!deferredPrompt)return;
+  deferredPrompt.prompt();await deferredPrompt.userChoice;deferredPrompt=null;
+  installBar.style.display='none';
+});
+if('serviceWorker' in navigator && location.protocol.indexOf('http')===0){
+  window.addEventListener('load',()=>{
+    navigator.serviceWorker.register('./sw.js',{scope:'./'}).catch(()=>{});
+  });
+  // SW 激活新版本后自动刷新，确保看到最新页面
+  let refreshing=false;
+  navigator.serviceWorker.addEventListener('controllerchange',()=>{
+    if(!refreshing){refreshing=true;location.reload();}
+  });
+}
+
+/* ============ 初始化 ============ */
+document.getElementById('todayDate').textContent=fmtDate(new Date())+' · NEON FIT';
+renderHome();
+addEventListener('resize',()=>{if(document.getElementById('page-dashboard').classList.contains('active'))renderDashboard();});
+</script>
+</body>
+</html>
