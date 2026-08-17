@@ -1,25 +1,6 @@
 {
   "pass": "e67eebd0",
-  "records": [
-    {
-      "id": 1786945412618,
-      "type": "健身操",
-      "duration": 30,
-      "calories": 195,
-      "distance": 0,
-      "date": "2026-08-17",
-      "note": "好"
-    },
-    {
-      "id": 1786945512607,
-      "type": "篮球",
-      "duration": 36,
-      "calories": 234,
-      "distance": 0,
-      "date": "2026-08-17",
-      "note": "123"
-    }
-  ],
+  "records": [],
   "weight": [
     {
       "date": "2026-08-17",
