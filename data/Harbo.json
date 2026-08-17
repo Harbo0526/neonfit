@@ -1,6 +1,16 @@
 {
   "pass": "e67eebd0",
-  "records": [],
+  "records": [
+    {
+      "id": 1786946136449,
+      "type": "篮球",
+      "duration": 60,
+      "calories": 390,
+      "distance": 0,
+      "date": "2026-08-17",
+      "note": ""
+    }
+  ],
   "weight": [
     {
       "date": "2026-08-17",
