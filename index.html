@@ -525,16 +525,20 @@ function loadGoal(){try{return Object.assign({},DEF_GOAL,JSON.parse(localStorage
 function saveGoal(g){localStorage.setItem(localKey(KEY_GOAL),JSON.stringify(g));cloudSync();}
 
 /* 云端文件：data/<user>.json = {pass, records, weight, types, goal} */
-let _syncing=false;
+let _syncing=false, _dirty=false;
 async function cloudSync(){
-  if(!SESSION||_syncing)return;
+  if(!SESSION)return;
+  if(_syncing){ _dirty=true; return; }   // 正在同步 → 标记脏，稍后补一次，避免并发调用被静默丢弃
   _syncing=true;
   try{
     const payload={pass:SESSION.passHash,records:load(),weight:loadWeight(),types:loadTypes(),goal:loadGoal()};
     const meta=await giteeGetMeta('data/'+SESSION.user+'.json');
     await giteePut('data/'+SESSION.user+'.json',payload,meta?meta.sha:undefined);
   }catch(e){console.warn('云同步失败（离线可用）',e);}
-  finally{_syncing=false;}
+  finally{
+    _syncing=false;
+    if(_dirty){ _dirty=false; cloudSync(); }   // 期间又有变更 → 再同步一次，确保最终一致
+  }
 }
 async function cloudPull(){
   if(!SESSION)return;
@@ -800,7 +804,7 @@ function renderHistory(){
   const recs=load().slice().sort((a,b)=>b.date.localeCompare(a.date)||b.id-a.id);
   const body=document.getElementById('historyBody');
   document.getElementById('historyEmpty').style.display=recs.length?'none':'block';
-  body.innerHTML=recs.map(r=>`<tr>
+  body.innerHTML=recs.map(r=>`<tr data-id="${r.id}">
     <td>${r.date}</td>
     <td><span class="tag ${tagClass(r.type)}" style="color:${colorFor(r.type)};border-color:${colorFor(r.type)}55">${r.type}</span></td>
     <td>${r.duration} 分</td>
@@ -808,14 +812,33 @@ function renderHistory(){
     <td>${r.distance?r.distance+' km':'—'}</td>
     <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis">${r.note||'—'}</td>
     <td><button class="del" data-id="${r.id}">✕</button></td></tr>`).join('');
-  body.querySelectorAll('.del').forEach(b=>b.addEventListener('click',()=>{
-    const id=+b.dataset.id;save(load().filter(r=>r.id!==id));
-    renderHistory();renderHome();toast('已删除一条记录');
+  // 单击删除按钮
+  body.querySelectorAll('.del').forEach(b=>b.addEventListener('click',e=>{
+    e.stopPropagation();
+    const id=+b.dataset.id;
+    if(confirm('确定删除这条记录吗？')){save(load().filter(r=>r.id!==id));renderHistory();renderHome();toast('已删除一条记录');}
   }));
+  // 长按整行 → 弹出是否删除（移动端/桌面端通用）
+  body.querySelectorAll('tr[data-id]').forEach(tr=>{
+    let timer=null;
+    const start=()=>{timer=setTimeout(()=>{
+      const id=+tr.dataset.id;
+      if(confirm('确定删除这条记录吗？')){save(load().filter(r=>r.id!==id));renderHistory();renderHome();toast('已删除一条记录');}
+    },600);};
+    const cancel=()=>{if(timer){clearTimeout(timer);timer=null;}};
+    tr.addEventListener('mousedown',start);
+    tr.addEventListener('touchstart',start,{passive:true});
+    tr.addEventListener('mouseup',cancel);tr.addEventListener('mouseleave',cancel);
+    tr.addEventListener('touchend',cancel);tr.addEventListener('touchmove',cancel);
+  });
 }
 document.getElementById('clearBtn').addEventListener('click',()=>{
   if(confirm('确定清空全部？将同时删除打卡记录与体重记录，不可恢复。')){
-    save([]);saveWeight([]);saveTypes(DEF_TYPES.slice());renderHistory();renderHome();refreshTypeList();toast('已清空全部记录');}
+    localStorage.setItem(localKey(KEY),'[]');
+    localStorage.setItem(localKey(KEY_W),'[]');
+    localStorage.setItem(localKey(KEY_TYPES),JSON.stringify(DEF_TYPES.slice()));
+    cloudSync();   // 一次性同步最终（清空）状态，确保 GitHub 也清空
+    renderHistory();renderHome();refreshTypeList();toast('已清空全部记录');}
 });
 document.getElementById('exportBtn').addEventListener('click',()=>{
   const data=JSON.stringify({records:load(),weight:loadWeight(),types:loadTypes()},null,2);
