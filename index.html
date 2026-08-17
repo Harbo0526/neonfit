@@ -194,6 +194,18 @@ canvas.chart{width:100%;height:100%}
 .install-bar span{flex:1;font-size:13px}
 .install-bar button{padding:8px 16px;font-size:13px}
 
+/* ===== Auth ===== */
+.auth-screen{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;
+  background:radial-gradient(circle at 50% 20%,#160a3a 0%,var(--bg-0) 60%);padding:20px}
+.auth-card{width:100%;max-width:360px;background:var(--glass);border:1px solid var(--line);
+  border-radius:18px;padding:30px 26px;backdrop-filter:blur(8px);box-shadow:0 0 40px rgba(0,240,255,.18)}
+.auth-card .brand{font-size:24px}
+.auth-tip{font-size:12px;color:var(--muted);text-align:center;margin:10px 0 20px}
+.auth-switch{font-size:11px;color:var(--muted);text-align:center;margin-top:14px;line-height:1.6}
+.auth-ver{font-size:10px;color:var(--muted);text-align:center;margin-top:14px;letter-spacing:1px}
+.auth-card .field{margin-bottom:14px}
+.auth-card .btn{width:100%}
+
 @media(max-width:768px){
   .sidebar{display:none}
   .content{padding:18px 16px 90px}
@@ -211,7 +223,22 @@ canvas.chart{width:100%;height:100%}
 <body>
 <canvas id="particles"></canvas>
 
-<div class="app">
+<!-- 登录 / 注册 -->
+<div id="authScreen" class="auth-screen">
+  <div class="auth-card">
+    <div class="brand" style="text-align:center;margin-bottom:6px">NEON FIT<small>FITNESS · TRACKER</small></div>
+    <p class="auth-tip">多人共用 · 数据各自云端存储（GitHub）</p>
+    <form id="authForm">
+      <div class="field"><label>用户名</label><input id="auth-user" autocomplete="off" required placeholder="例如 zhangsan"></div>
+      <div class="field"><label>密码</label><input id="auth-pass" type="password" required placeholder="设置或输入密码"></div>
+      <button class="btn" type="submit" id="authSubmit">进入</button>
+      <div class="auth-switch">首次使用将自动注册并创建你的云端文件</div>
+    </form>
+    <div class="auth-ver" id="authVer">v0.0.0</div>
+  </div>
+</div>
+
+<div class="app" id="appMain" style="display:none">
   <!-- Sidebar -->
   <aside class="sidebar">
     <div class="brand">NEON FIT<small>FITNESS · TRACKER</small></div>
@@ -219,7 +246,11 @@ canvas.chart{width:100%;height:100%}
     <div class="nav-item" data-page="checkin"><span class="ico">✚</span><span>打卡</span></div>
     <div class="nav-item" data-page="dashboard"><span class="ico">◈</span><span>数据看板</span></div>
     <div class="nav-item" data-page="history"><span class="ico">☰</span><span>历史记录</span></div>
-    <div class="foot">本地存储 · 离线可用<br>数据仅保存在此设备浏览器</div>
+    <div class="foot">多人云端存储 · 离线可用<br>
+      <span id="curUser" style="color:var(--cyan)"></span>
+      <button class="btn ghost" id="logoutBtn" style="margin-top:10px;font-size:12px;padding:8px 14px">退出登录</button>
+      <div style="margin-top:10px;font-size:10px;color:var(--muted)" id="sideVer">v0.0.0</div>
+    </div>
   </aside>
 
   <!-- Main -->
@@ -417,20 +448,93 @@ function fmtDate(d){const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,
 function sumDur(a){return a.reduce((s,r)=>s+(+r.duration||0),0);}
 function sumCal(a){return a.reduce((s,r)=>s+(+r.calories||0),0);}
 
-/* ============ 数据存储 ============ */
-const KEY='neonfit_records_v1';
-const KEY_W='neonfit_weight_v1';
-const KEY_TYPES='neonfit_types_v1';
-function load(){try{return JSON.parse(localStorage.getItem(KEY))||[]}catch(e){return[]}}
-function save(a){localStorage.setItem(KEY,JSON.stringify(a))}
-function loadWeight(){try{return JSON.parse(localStorage.getItem(KEY_W))||[]}catch(e){return[]}}
-function saveWeight(a){localStorage.setItem(KEY_W,JSON.stringify(a))}
-function loadTypes(){try{const t=JSON.parse(localStorage.getItem(KEY_TYPES));return Array.isArray(t)&&t.length?t:DEF_TYPES.slice();}catch(e){return DEF_TYPES.slice();}}
-function saveTypes(a){const uniq=[...new Set(a)].filter(Boolean);localStorage.setItem(KEY_TYPES,JSON.stringify(uniq));}
+/* ============ 配置（部署前填写） ============ */
+const APP_VERSION='v1.0.0';   // 软件版本号（每次修改递增，详见 CHANGELOG.md）
+const CONFIG={
+  owner:'Harbo0526',       // GitHub 账号名
+  repo:'neonfit',          // 仓库名
+  token:'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', // GitHub 私人令牌（路径3：明文在前端，熟人圈可接受）
+  branch:'main'            // 若仓库默认分支是 master，改成 'master'
+};
+const API=`https://api.github.com/repos/${CONFIG.owner}/${CONFIG.repo}/contents`;
+
+/* ============ 简单哈希（非加密级，熟人圈够用） ============ */
+function simpleHash(str){
+  let h=2166136261>>>0;
+  for(let i=0;i<str.length;i++){h^=str.charCodeAt(i);h=Math.imul(h,16777619)>>>0;}
+  return ('00000000'+h.toString(16)).slice(-8);
+}
+
+/* ============ 当前会话 ============ */
+let SESSION=null; // {user, passHash}
+function localKey(suffix){return 'neonfit_'+SESSION.user+'_'+suffix;}
+function setCur(u){document.getElementById('curUser').textContent='当前：'+u;}
+
+/* ============ GitHub 读写 ============ */
+async function giteeGet(path){
+  const r=await fetch(API+'/'+encodeURIComponent(path)+'?ref='+CONFIG.branch,{
+    headers:{'Authorization':'token '+CONFIG.token,'Accept':'application/vnd.github.v3+json'}});
+  if(r.status===404)return null;
+  if(!r.ok)throw new Error('读取失败 '+r.status);
+  const j=await r.json();
+  return JSON.parse(decodeURIComponent(escape(atob(j.content.replace(/\s/g,'')))));
+}
+async function giteePut(path,data,sha){
+  const body={message:'update '+path,content:btoa(unescape(encodeURIComponent(JSON.stringify(data,null,2)))),branch:CONFIG.branch};
+  if(sha)body.sha=sha;
+  const r=await fetch(API+'/'+encodeURIComponent(path),{
+    method:'PUT',headers:{'Authorization':'token '+CONFIG.token,'Content-Type':'application/json','Accept':'application/vnd.github.v3+json'},
+    body:JSON.stringify(body)});
+  if(!r.ok)throw new Error('写入失败 '+r.status);
+  return r.json();
+}
+async function giteeGetMeta(path){
+  const r=await fetch(API+'/'+encodeURIComponent(path)+'?ref='+CONFIG.branch,{
+    headers:{'Authorization':'token '+CONFIG.token,'Accept':'application/vnd.github.v3+json'}});
+  if(r.status===404)return null;
+  if(!r.ok)throw new Error('读取失败 '+r.status);
+  return r.json();
+}
+
+/* ============ 数据存储（本地缓存 + 云端同步） ============ */
+const DEF_TYPES=['跑步','骑行','健身','游泳','瑜伽'];
+const KEY='records',KEY_W='weight',KEY_TYPES='types',KEY_GOAL='goal';
+
+function load(){try{return JSON.parse(localStorage.getItem(localKey(KEY)))||[]}catch(e){return[]}}
+function save(a){localStorage.setItem(localKey(KEY),JSON.stringify(a));cloudSync();}
+function loadWeight(){try{return JSON.parse(localStorage.getItem(localKey(KEY_W)))||[]}catch(e){return[]}}
+function saveWeight(a){localStorage.setItem(localKey(KEY_W),JSON.stringify(a));cloudSync();}
+function loadTypes(){try{const t=JSON.parse(localStorage.getItem(localKey(KEY_TYPES)));return Array.isArray(t)&&t.length?t:DEF_TYPES.slice();}catch(e){return DEF_TYPES.slice();}}
+function saveTypes(a){const uniq=[...new Set(a)].filter(Boolean);localStorage.setItem(localKey(KEY_TYPES),JSON.stringify(uniq));cloudSync();}
+function loadGoal(){try{return Object.assign({},DEF_GOAL,JSON.parse(localStorage.getItem(localKey(KEY_GOAL))||'{}'));}catch(e){return Object.assign({},DEF_GOAL);}}
+function saveGoal(g){localStorage.setItem(localKey(KEY_GOAL),JSON.stringify(g));cloudSync();}
+
+/* 云端文件：data/<user>.json = {pass, records, weight, types, goal} */
+let _syncing=false;
+async function cloudSync(){
+  if(!SESSION||_syncing)return;
+  _syncing=true;
+  try{
+    const payload={pass:SESSION.passHash,records:load(),weight:loadWeight(),types:loadTypes(),goal:loadGoal()};
+    const meta=await giteeGetMeta('data/'+SESSION.user+'.json');
+    await giteePut('data/'+SESSION.user+'.json',payload,meta?meta.sha:undefined);
+  }catch(e){console.warn('云同步失败（离线可用）',e);}
+  finally{_syncing=false;}
+}
+async function cloudPull(){
+  if(!SESSION)return;
+  try{
+    const data=await giteeGet('data/'+SESSION.user+'.json');
+    if(data){
+      localStorage.setItem(localKey(KEY),JSON.stringify(data.records||[]));
+      localStorage.setItem(localKey(KEY_W),JSON.stringify(data.weight||[]));
+      localStorage.setItem(localKey(KEY_TYPES),JSON.stringify(data.types||DEF_TYPES.slice()));
+      localStorage.setItem(localKey(KEY_GOAL),JSON.stringify(data.goal||{}));
+    }
+  }catch(e){console.warn('云拉取失败',e);}
+}
 
 const DEF_GOAL={weeklyCount:4,weeklyDuration:240,monthlyCalories:4000,monthlyCount:16};
-function loadGoal(){try{return Object.assign({},DEF_GOAL,JSON.parse(localStorage.getItem('neonfit_goal')||'{}'));}catch(e){return Object.assign({},DEF_GOAL);}}
-function saveGoal(g){localStorage.setItem('neonfit_goal',JSON.stringify(g));}
 
 /* 范围过滤：本周(周一~)/本月(1号~) */
 function rangeStart(range){
@@ -779,9 +883,61 @@ if('serviceWorker' in navigator && location.protocol.indexOf('http')===0){
   });
 }
 
-/* ============ 初始化 ============ */
-document.getElementById('todayDate').textContent=fmtDate(new Date())+' · NEON FIT';
-renderHome();
+/* ============ 认证 ============ */
+const authScreen=document.getElementById('authScreen');
+const appMain=document.getElementById('appMain');
+function showApp(){authScreen.style.display='none';appMain.style.display='flex';setCur(SESSION.user);}
+function showAuth(){authScreen.style.display='flex';appMain.style.display='none';}
+
+document.getElementById('authForm').addEventListener('submit',async e=>{
+  e.preventDefault();
+  const user=document.getElementById('auth-user').value.trim();
+  const pass=document.getElementById('auth-pass').value;
+  if(!/^[A-Za-z0-9_]{2,20}$/.test(user)){toast('⚠ 用户名限字母数字下划线 2-20 位');return;}
+  const passHash=simpleHash(pass);
+  document.getElementById('authSubmit').textContent='处理中…';
+  try{
+    const meta=await giteeGetMeta('data/'+user+'.json');
+    if(meta){
+      // 已存在 → 登录校验
+      const data=await giteeGet('data/'+user+'.json');
+      if(data.pass!==passHash){toast('⚠ 密码错误');document.getElementById('authSubmit').textContent='进入';return;}
+      SESSION={user,passHash};
+    }else{
+      // 不存在 → 注册并建文件
+      SESSION={user,passHash};
+      await giteePut('data/'+user+'.json',{pass:passHash,records:[],weight:[],types:DEF_TYPES.slice(),goal:DEF_GOAL});
+      toast('🎉 注册成功，云端文件已创建');
+    }
+    localStorage.setItem('neonfit_session',JSON.stringify(SESSION));
+    await cloudPull();
+    showApp();renderHome();
+  }catch(err){
+    console.error(err);
+    toast('⚠ 网络或仓库错误：'+err.message);
+  }
+  document.getElementById('authSubmit').textContent='进入';
+});
+
+document.getElementById('logoutBtn').addEventListener('click',()=>{
+  localStorage.removeItem('neonfit_session');SESSION=null;
+  showAuth();toast('已退出登录');
+});
+
+/* ============ 启动 ============ */
+(function init(){
+  document.getElementById('todayDate').textContent=fmtDate(new Date())+' · NEON FIT';
+  document.getElementById('authVer').textContent=APP_VERSION;
+  document.getElementById('sideVer').textContent=APP_VERSION;
+  const saved=localStorage.getItem('neonfit_session');
+  if(saved){try{SESSION=JSON.parse(saved);}catch(e){SESSION=null;}}
+  if(SESSION&&SESSION.user){
+    showApp();
+    cloudPull().then(renderHome).catch(()=>renderHome());
+  }else{
+    showAuth();
+  }
+})();
 addEventListener('resize',()=>{if(document.getElementById('page-dashboard').classList.contains('active'))renderDashboard();});
 </script>
 </body>

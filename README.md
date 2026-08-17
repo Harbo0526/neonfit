@@ -52,3 +52,57 @@ https://<你的用户名>.github.io/neonfit/
 
 ## 重新部署 / 更新
 改完文件后，回到仓库 **Add file → Upload files** 覆盖同名文件并 Commit，GitHub Pages 会自动更新（约 1 分钟生效）。
+
+---
+
+### 从 GitHub 一键部署到 Vercel / Netlify（海外，国内一般可直连）
+若你已推到 GitHub，可免重复上传：
+- **Vercel**：用 GitHub 登录 https://vercel.com → New Project → 选你的 `neonfit` 仓库 → Deploy。网址 `https://neonfit-xxx.vercel.app`，国内通常可直连。
+- **Netlify**：https://app.netlify.com → Add new site → Import from GitHub → 选仓库 → Deploy。网址 `https://xxx.netlify.app`。
+
+两者都自动从 GitHub 拉取，后续 push 即自动更新。
+
+## 平台选择小结
+| 平台 | 国内手机直连 | 自动更新 | 备注 |
+|---|---|---|---|
+| GitHub Pages | ⚠️ 有时慢/需代理 | ✅ | 前端托管 + 云端存储后端（本方案） |
+| Gitee Pages | ❌ 已实质暂停 | — | 不推荐，新仓库基本无法开启 |
+| Vercel / Netlify | ⚠️ 一般可直连 | ✅ | 仅作前端托管，数据仍写 GitHub 仓库 |
+
+---
+
+## 多用户 + GitHub 云端存储（≤20 人熟人圈方案）
+
+本版已内置「账号密码登录 / 注册」，**每个用户在你的 GitHub 仓库里自动生成独立文件 `data/<用户名>.json`**，数据彼此隔离、不怕清缓存丢失。GitHub API 国内一般可直连，无需额外翻墙。
+
+### 工作原理
+- 用户首次输入用户名+密码 → 自动在仓库 `data/` 下建 `<用户名>.json`（含哈希密码+打卡/体重/类型/目标）
+- 之后登录 → 从云端拉取自己的数据；每次打卡 → 本地缓存 + 异步写回云端
+- 离线也能用（本地缓存），联网自动同步
+
+### 部署前必做：填写 CONFIG
+打开 `index.html`，找到顶部 `CONFIG` 对象：
+```js
+const CONFIG={
+  owner:'Harbo0526',       // 你的 GitHub 账号名
+  repo:'neonfit',          // 仓库名
+  token:'ghp_xxxx',        // ← 替换成你的 GitHub 私人令牌
+  branch:'main'            // 若仓库默认分支是 master，改成 'master'
+};
+```
+把 `token` 换成你在 GitHub 生成的 **私人令牌（Personal Access Token，classic 或 fine-grained 均可）**，权限需勾 **repo（完整仓库读写）**。注意：**Gitee 的令牌不能用于 GitHub**，必须重新在 GitHub 生成。
+
+### 仓库准备
+1. 仓库需含 `index.html`、`sw.js`、`404.html`（根目录）。
+2. 首次有人注册后，代码会自动创建 `data/` 目录和对应文件，**你无需手动建**。
+3. 前端页面用 **GitHub Pages** 托管（见上文），其自带 HTTPS，PWA 可正常生效。
+
+### 安全说明（路径3 已知取舍）
+- token 明文写在 `index.html` 前端代码里，**任何查看源码的人都能拿到**。
+- 因此本方案仅适合**熟人小圈（≤20 人）**，且用户间靠"用户名文件隔离"而非强鉴权。
+- 不要把这个网址公开给陌生人；若需严格隔离，请改用 LeanCloud/Supabase 等真后端。
+- 密码为前端简单哈希（非加密级），请勿使用重要密码。
+
+### 更新网站后
+- 改完 `index.html` 推送到 GitHub → GitHub Pages 会自动更新（约 1 分钟生效）。
+- 用户数据在 `data/*.json`，不受页面更新影响。
