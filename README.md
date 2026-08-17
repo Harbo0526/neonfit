@@ -86,11 +86,12 @@ https://<你的用户名>.github.io/neonfit/
 const CONFIG={
   owner:'Harbo0526',       // 你的 GitHub 账号名
   repo:'neonfit',          // 仓库名
-  token:'ghp_xxxx',        // ← 替换成你的 GitHub 私人令牌
   branch:'main'            // 若仓库默认分支是 master，改成 'master'
 };
 ```
-把 `token` 换成你在 GitHub 生成的 **私人令牌（Personal Access Token，classic 或 fine-grained 均可）**，权限需勾 **repo（完整仓库读写）**。注意：**Gitee 的令牌不能用于 GitHub**，必须重新在 GitHub 生成。
+> **重要：仓库令牌不再写进代码。** 改为用户登录时在「仓库令牌」框里填写自己的 GitHub 私人令牌（classic 或 fine-grained 均可，权限需勾 `repo` 完整仓库读写）。令牌只存在用户浏览器 localStorage，不会进代码、也不会进公开仓库，因此不会被 GitHub 密钥扫描拦截。
+>
+> 这样设计的好处：代码可自由提交到公开仓库，无需担心令牌泄露；谁用谁填自己的令牌即可。
 
 ### 仓库准备
 1. 仓库需含 `index.html`、`sw.js`、`404.html`（根目录）。

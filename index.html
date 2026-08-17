@@ -231,8 +231,9 @@ canvas.chart{width:100%;height:100%}
     <form id="authForm">
       <div class="field"><label>用户名</label><input id="auth-user" autocomplete="off" required placeholder="例如 zhangsan"></div>
       <div class="field"><label>密码</label><input id="auth-pass" type="password" required placeholder="设置或输入密码"></div>
+      <div class="field"><label>仓库令牌</label><input id="auth-token" type="password" required placeholder="GitHub 私人令牌 ghp_..."></div>
       <button class="btn" type="submit" id="authSubmit">进入</button>
-      <div class="auth-switch">首次使用将自动注册并创建你的云端文件</div>
+      <div class="auth-switch">首次使用将自动注册并创建你的云端文件；令牌仅存本地，不上传他人</div>
     </form>
     <div class="auth-ver" id="authVer">v0.0.0</div>
   </div>
@@ -449,14 +450,15 @@ function sumDur(a){return a.reduce((s,r)=>s+(+r.duration||0),0);}
 function sumCal(a){return a.reduce((s,r)=>s+(+r.calories||0),0);}
 
 /* ============ 配置（部署前填写） ============ */
-const APP_VERSION='v1.0.0';   // 软件版本号（每次修改递增，详见 CHANGELOG.md）
+const APP_VERSION='v1.0.1';   // 软件版本号（每次修改递增，详见 CHANGELOG.md）
 const CONFIG={
   owner:'Harbo0526',       // GitHub 账号名
   repo:'neonfit',          // 仓库名
-  token:'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', // GitHub 私人令牌（路径3：明文在前端，熟人圈可接受）
   branch:'main'            // 若仓库默认分支是 master，改成 'master'
 };
 const API=`https://api.github.com/repos/${CONFIG.owner}/${CONFIG.repo}/contents`;
+/* 仓库令牌由用户登录时填写，仅存于本地 localStorage，不写进代码（避免 GitHub 密钥扫描拦截） */
+function getToken(){return localStorage.getItem('neonfit_gh_token')||'';}
 
 /* ============ 简单哈希（非加密级，熟人圈够用） ============ */
 function simpleHash(str){
@@ -473,7 +475,7 @@ function setCur(u){document.getElementById('curUser').textContent='当前：'+u;
 /* ============ GitHub 读写 ============ */
 async function giteeGet(path){
   const r=await fetch(API+'/'+encodeURIComponent(path)+'?ref='+CONFIG.branch,{
-    headers:{'Authorization':'token '+CONFIG.token,'Accept':'application/vnd.github.v3+json'}});
+    headers:{'Authorization':'token '+getToken(),'Accept':'application/vnd.github.v3+json'}});
   if(r.status===404)return null;
   if(!r.ok)throw new Error('读取失败 '+r.status);
   const j=await r.json();
@@ -483,14 +485,14 @@ async function giteePut(path,data,sha){
   const body={message:'update '+path,content:btoa(unescape(encodeURIComponent(JSON.stringify(data,null,2)))),branch:CONFIG.branch};
   if(sha)body.sha=sha;
   const r=await fetch(API+'/'+encodeURIComponent(path),{
-    method:'PUT',headers:{'Authorization':'token '+CONFIG.token,'Content-Type':'application/json','Accept':'application/vnd.github.v3+json'},
+    method:'PUT',headers:{'Authorization':'token '+getToken(),'Content-Type':'application/json','Accept':'application/vnd.github.v3+json'},
     body:JSON.stringify(body)});
   if(!r.ok)throw new Error('写入失败 '+r.status);
   return r.json();
 }
 async function giteeGetMeta(path){
   const r=await fetch(API+'/'+encodeURIComponent(path)+'?ref='+CONFIG.branch,{
-    headers:{'Authorization':'token '+CONFIG.token,'Accept':'application/vnd.github.v3+json'}});
+    headers:{'Authorization':'token '+getToken(),'Accept':'application/vnd.github.v3+json'}});
   if(r.status===404)return null;
   if(!r.ok)throw new Error('读取失败 '+r.status);
   return r.json();
@@ -893,7 +895,10 @@ document.getElementById('authForm').addEventListener('submit',async e=>{
   e.preventDefault();
   const user=document.getElementById('auth-user').value.trim();
   const pass=document.getElementById('auth-pass').value;
+  const token=document.getElementById('auth-token').value.trim();
+  if(!token){toast('⚠ 请填写 GitHub 仓库令牌');return;}
   if(!/^[A-Za-z0-9_]{2,20}$/.test(user)){toast('⚠ 用户名限字母数字下划线 2-20 位');return;}
+  localStorage.setItem('neonfit_gh_token',token); // 令牌仅存本地
   const passHash=simpleHash(pass);
   document.getElementById('authSubmit').textContent='处理中…';
   try{
@@ -929,6 +934,8 @@ document.getElementById('logoutBtn').addEventListener('click',()=>{
   document.getElementById('todayDate').textContent=fmtDate(new Date())+' · NEON FIT';
   document.getElementById('authVer').textContent=APP_VERSION;
   document.getElementById('sideVer').textContent=APP_VERSION;
+  const savedToken=localStorage.getItem('neonfit_gh_token');
+  if(savedToken)document.getElementById('auth-token').value=savedToken; // 回填，免重复输入
   const saved=localStorage.getItem('neonfit_session');
   if(saved){try{SESSION=JSON.parse(saved);}catch(e){SESSION=null;}}
   if(SESSION&&SESSION.user){
