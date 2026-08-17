@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="NEON FIT">
-<title>NEON FIT · 运动打卡</title>
+<title>Harbo FIT · 运动打卡</title>
 <style>
 :root{
   --cyan:#00f0ff;
@@ -193,6 +193,14 @@ canvas.chart{width:100%;height:100%}
   background:linear-gradient(90deg,rgba(0,240,255,.12),rgba(255,43,214,.1))}
 .install-bar span{flex:1;font-size:13px}
 .install-bar button{padding:8px 16px;font-size:13px}
+
+/* update banner (新版本提示) */
+.update-bar{
+  display:none;align-items:center;gap:12px;margin:0 26px 18px;
+  padding:12px 18px;border-radius:12px;border:1px solid var(--line);
+  background:linear-gradient(90deg,rgba(57,255,20,.12),rgba(0,240,255,.1))}
+.update-bar span{flex:1;font-size:13px}
+.update-bar button{padding:8px 16px;font-size:13px}
 
 /* ===== Auth ===== */
 .auth-screen{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;
@@ -400,6 +408,12 @@ canvas.chart{width:100%;height:100%}
   <button class="btn ghost" id="installClose">✕</button>
 </div>
 
+<!-- Update banner (发现新版本) -->
+<div class="update-bar" id="updateBar">
+  <span>🔄 Harbo已为您推送新版本，点击立即刷新</span>
+  <button class="btn" id="updateBtn">刷新</button>
+</div>
+
 <!-- Bottom Tab -->
 <nav class="bottom-tab">
   <div class="tab active" data-page="home"><span class="ico">◆</span>首页</div>
@@ -499,7 +513,6 @@ async function giteeGetMeta(path){
 }
 
 /* ============ 数据存储（本地缓存 + 云端同步） ============ */
-const DEF_TYPES=['跑步','骑行','健身','游泳','瑜伽'];
 const KEY='records',KEY_W='weight',KEY_TYPES='types',KEY_GOAL='goal';
 
 function load(){try{return JSON.parse(localStorage.getItem(localKey(KEY)))||[]}catch(e){return[]}}
@@ -878,10 +891,39 @@ if('serviceWorker' in navigator && location.protocol.indexOf('http')===0){
   window.addEventListener('load',()=>{
     navigator.serviceWorker.register('./sw.js',{scope:'./'}).catch(()=>{});
   });
-  // SW 激活新版本后自动刷新，确保看到最新页面
+  const updateBar=document.getElementById('updateBar');
+  const updateBtn=document.getElementById('updateBtn');
+  // 检测到等待激活的新 SW → 弹出"发现新版本"提示条（不强制刷新，由用户点）
+  navigator.serviceWorker.addEventListener('message',e=>{
+    if(e.data==='NEONFIT_UPDATE'){updateBar.style.display='flex';}
+  });
+  // 注册时监听 waiting 状态（已安装但未激活的新版本）
+  navigator.serviceWorker.ready.then(reg=>{
+    if(reg.waiting){updateBar.style.display='flex';}
+    reg.addEventListener('updatefound',()=>{
+      const nw=reg.installing;
+      if(nw){nw.addEventListener('statechange',()=>{
+        if(nw.state==='installed'&&navigator.serviceWorker.controller){
+          updateBar.style.display='flex';
+        }
+      });}
+    });
+  });
+  // 点击刷新 → 让等待中的 SW 立即接管并 reload
+  updateBtn.addEventListener('click',()=>{
+    navigator.serviceWorker.getRegistration().then(reg=>{
+      if(reg&&reg.waiting){
+        reg.waiting.postMessage('SKIP_WAITING');
+        updateBar.style.display='none';
+      }else{
+        location.reload();
+      }
+    });
+  });
+  // SW 激活新版本后兜底自动刷新（应对无交互场景）
   let refreshing=false;
   navigator.serviceWorker.addEventListener('controllerchange',()=>{
-    if(!refreshing){refreshing=true;location.reload();}
+    if(!refreshing){refreshing=true;updateBar.style.display='none';location.reload();}
   });
 }
 
