@@ -74,6 +74,8 @@ body{
 }
 .topbar h1{font-size:18px;letter-spacing:1px;font-weight:700}
 .topbar .date{font-size:12px;color:var(--muted)}
+.topbar-right{display:flex;align-items:center;gap:14px}
+.topbar-user{font-size:13px;color:var(--cyan);border:1px solid var(--line);padding:5px 12px;border-radius:20px;background:rgba(0,240,255,.07)}
 .content{padding:26px;flex:1}
 
 .page{display:none}
@@ -234,7 +236,7 @@ canvas.chart{width:100%;height:100%}
 <!-- 登录 / 注册 -->
 <div id="authScreen" class="auth-screen">
   <div class="auth-card">
-    <div class="brand" style="text-align:center;margin-bottom:6px">NEON FIT<small>FITNESS · TRACKER</small></div>
+    <div class="brand" style="text-align:center;margin-bottom:6px">HarboFit<small>FITNESS · TRACKER</small></div>
     <p class="auth-tip">多人共用 · 数据各自云端存储（GitHub）</p>
     <form id="authForm">
       <div class="field"><label>用户名</label><input id="auth-user" autocomplete="off" required placeholder="例如 zhangsan"></div>
@@ -250,7 +252,7 @@ canvas.chart{width:100%;height:100%}
 <div class="app" id="appMain" style="display:none">
   <!-- Sidebar -->
   <aside class="sidebar">
-    <div class="brand">NEON FIT<small>FITNESS · TRACKER</small></div>
+    <div class="brand">HarboFit<small>FITNESS · TRACKER</small></div>
     <div class="nav-item active" data-page="home"><span class="ico">◆</span><span>首页</span></div>
     <div class="nav-item" data-page="checkin"><span class="ico">✚</span><span>打卡</span></div>
     <div class="nav-item" data-page="dashboard"><span class="ico">◈</span><span>数据看板</span></div>
@@ -266,7 +268,10 @@ canvas.chart{width:100%;height:100%}
   <div class="main">
     <div class="topbar">
       <h1 id="pageTitle">首页</h1>
-      <div class="date" id="todayDate"></div>
+      <div class="topbar-right">
+        <span class="topbar-user" id="topUser" style="display:none"></span>
+        <div class="date" id="todayDate"></div>
+      </div>
     </div>
     <div class="content">
 
@@ -382,8 +387,8 @@ canvas.chart{width:100%;height:100%}
         <div class="panel reveal">
           <h3>全部记录</h3>
           <div style="margin-bottom:14px;display:flex;gap:10px;flex-wrap:wrap">
-            <button class="btn ghost" id="exportBtn">⬇ 导出 JSON</button>
-            <button class="btn ghost" id="importBtn">⬆ 导入 JSON</button>
+            <button class="btn ghost" id="exportBtn">⬇ 备份下载</button>
+            <button class="btn ghost" id="importBtn">⬆ 备份上传</button>
             <button class="btn danger" id="clearBtn">🗑 清空全部</button>
           </div>
           <input type="file" id="importFile" accept="application/json,.json" style="display:none">
@@ -471,6 +476,7 @@ const CONFIG={
   branch:'main'            // 若仓库默认分支是 master，改成 'master'
 };
 const API=`https://api.github.com/repos/${CONFIG.owner}/${CONFIG.repo}/contents`;
+const USER_FILE='data/users.json';   // 用户索引：明文存所有用户名+密码，便于直接在仓库查看
 /* 仓库令牌由用户登录时填写，仅存于本地 localStorage，不写进代码（避免 GitHub 密钥扫描拦截） */
 function getToken(){return localStorage.getItem('neonfit_gh_token')||'';}
 
@@ -484,7 +490,11 @@ function simpleHash(str){
 /* ============ 当前会话 ============ */
 let SESSION=null; // {user, passHash}
 function localKey(suffix){return 'neonfit_'+SESSION.user+'_'+suffix;}
-function setCur(u){document.getElementById('curUser').textContent='当前：'+u;}
+function setCur(u){
+  document.getElementById('curUser').textContent='当前：'+u;
+  const tu=document.getElementById('topUser');
+  tu.textContent='👤 '+u;tu.style.display='inline-block';
+}
 
 /* ============ GitHub 读写 ============ */
 async function giteeGet(path){
@@ -844,7 +854,7 @@ document.getElementById('exportBtn').addEventListener('click',()=>{
   const data=JSON.stringify({records:load(),weight:loadWeight(),types:loadTypes()},null,2);
   const blob=new Blob([data],{type:'application/json'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);
-  a.download='neonfit_'+fmtDate(new Date())+'.json';a.click();toast('已导出 JSON（含体重）');
+  a.download='harbofit_'+fmtDate(new Date())+'.json';a.click();toast('已备份下载（含体重）');
 });
 document.getElementById('importBtn').addEventListener('click',()=>document.getElementById('importFile').click());
 document.getElementById('importFile').addEventListener('change',e=>{
@@ -886,7 +896,7 @@ let tT;function toast(msg){const t=document.getElementById('toast');t.textConten
 /* ============ PWA: 运行时生成 manifest ============ */
 (function(){
   const iconSVG='<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192"><rect width="192" height="192" rx="42" fill="#05010f"/><text x="50%" y="60%" font-size="86" text-anchor="middle" fill="#00f0ff" font-family="sans-serif" font-weight="bold">NF</text></svg>';
-  const manifest={name:'NEON FIT 运动打卡',short_name:'NEONFIT',start_url:'.',display:'standalone',
+  const manifest={name:'HarboFit 运动打卡',short_name:'HarboFit',start_url:'.',display:'standalone',
     background_color:'#05010f',theme_color:'#00f0ff',
     icons:[{src:'data:image/svg+xml,'+encodeURIComponent(iconSVG),sizes:'192x192',type:'image/svg+xml'},
            {src:'data:image/svg+xml,'+encodeURIComponent(iconSVG),sizes:'512x512',type:'image/svg+xml'}]};
@@ -918,7 +928,7 @@ if('serviceWorker' in navigator && location.protocol.indexOf('http')===0){
   const updateBtn=document.getElementById('updateBtn');
   // 检测到等待激活的新 SW → 弹出"发现新版本"提示条（不强制刷新，由用户点）
   navigator.serviceWorker.addEventListener('message',e=>{
-    if(e.data==='NEONFIT_UPDATE'){updateBar.style.display='flex';}
+    if(e.data==='HARBOFIT_UPDATE'){updateBar.style.display='flex';}
   });
   // 注册时监听 waiting 状态（已安装但未激活的新版本）
   navigator.serviceWorker.ready.then(reg=>{
@@ -967,17 +977,22 @@ document.getElementById('authForm').addEventListener('submit',async e=>{
   const passHash=simpleHash(pass);
   document.getElementById('authSubmit').textContent='处理中…';
   try{
-    const meta=await giteeGetMeta('data/'+user+'.json');
-    if(meta){
-      // 已存在 → 登录校验
-      const data=await giteeGet('data/'+user+'.json');
-      if(data.pass!==passHash){toast('⚠ 密码错误');document.getElementById('authSubmit').textContent='进入';return;}
+    // 读用户索引（明文用户名+密码，便于在仓库直接查看）
+    let users=[];
+    const uMeta=await giteeGetMeta(USER_FILE);
+    if(uMeta){ users=await giteeGet(USER_FILE); if(!Array.isArray(users))users=users.users||[]; }
+    const exists=users.find(u=>u.user.toLowerCase()===user.toLowerCase());
+    if(exists){
+      // 已注册 → 登录校验
+      if(exists.pass!==pass){toast('⚠ 密码错误');document.getElementById('authSubmit').textContent='进入';return;}
       SESSION={user,passHash};
     }else{
-      // 不存在 → 注册并建文件
-      SESSION={user,passHash};
-      await giteePut('data/'+user+'.json',{pass:passHash,records:[],weight:[],types:DEF_TYPES.slice(),goal:DEF_GOAL});
-      toast('🎉 注册成功，云端文件已创建');
+      // 未注册 → 注册：写入索引（明文密码）+ 建个人数据文件
+      users.push({user,pass,createdAt:fmtDate(new Date())});
+      const uSha=uMeta?uMeta.sha:undefined;
+      await giteePut(USER_FILE,{users},uSha);
+      await giteePut('data/'+user+'.json',{records:[],weight:[],types:DEF_TYPES.slice(),goal:DEF_GOAL});
+      toast('🎉 注册成功，已加入用户列表');
     }
     localStorage.setItem('neonfit_session',JSON.stringify(SESSION));
     await cloudPull();
@@ -996,7 +1011,7 @@ document.getElementById('logoutBtn').addEventListener('click',()=>{
 
 /* ============ 启动 ============ */
 (function init(){
-  document.getElementById('todayDate').textContent=fmtDate(new Date())+' · NEON FIT';
+  document.getElementById('todayDate').textContent=fmtDate(new Date())+' · HarboFit';
   document.getElementById('authVer').textContent=APP_VERSION;
   document.getElementById('sideVer').textContent=APP_VERSION;
   const savedToken=localStorage.getItem('neonfit_gh_token');

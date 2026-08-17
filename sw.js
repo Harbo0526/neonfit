@@ -1,6 +1,6 @@
-/* NEON FIT · Service Worker — 离线缓存 */
+/* HarboFit · Service Worker — 离线缓存 */
 // ⚠️ 每次发版更新 index.html 时，必须把下面 CACHE 的版本号 +1（如 v3→v4），否则手机端不会重新拉取最新页面！
-const CACHE = 'neonfit-v3.1';   // 每次发版改此版本号，强制更新缓存（v2→v3→v4…）
+const CACHE = 'neonfit-v3.2';   // 每次发版改此版本号，强制更新缓存（v2→v3→v4…）
 const ASSETS = ['./', './index.html', './404.html'];
 
 self.addEventListener('install', e => {
