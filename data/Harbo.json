@@ -9,15 +9,30 @@
       "distance": 0,
       "date": "2026-08-17",
       "note": "123456"
+    },
+    {
+      "id": 1786950268028,
+      "type": "跑步",
+      "duration": 90,
+      "calories": 585,
+      "distance": 0,
+      "date": "2026-08-17",
+      "note": "好"
     }
   ],
-  "weight": [],
+  "weight": [
+    {
+      "date": "2026-08-17",
+      "weight": 85
+    }
+  ],
   "types": [
     "跑步",
     "骑行",
     "健身",
     "游泳",
-    "瑜伽"
+    "瑜伽",
+    "篮球"
   ],
   "goal": {
     "weeklyCount": 4,
