@@ -603,16 +603,18 @@ async function cloudSync(){
   }
 }
 async function cloudPull(){
-  if(!SESSION)return;
-  try{
-    const data=await giteeGet('data/'+SESSION.user+'.json');
-    if(data){
-      localStorage.setItem(localKey(KEY),JSON.stringify(data.records||[]));
-      localStorage.setItem(localKey(KEY_W),JSON.stringify(data.weight||[]));
-      localStorage.setItem(localKey(KEY_TYPES),JSON.stringify(data.types||DEF_TYPES.slice()));
-      localStorage.setItem(localKey(KEY_GOAL),JSON.stringify(data.goal||{}));
-    }
-  }catch(e){console.warn('云拉取失败',e);}
+  if(!SESSION)throw new Error('未登录');
+  const r=await fetch(API+'/'+encodeURIComponent('data/'+SESSION.user+'.json')+'?ref='+CONFIG.branch,{
+    headers:{'Authorization':'token '+getToken(),'Accept':'application/vnd.github.v3+json'}});
+  if(r.status===404)return; // 云端暂无该用户文件，不算失败
+  if(r.status===401||r.status===403)throw new Error('令牌失效或无权限（'+r.status+'），请重新填写仓库令牌');
+  if(!r.ok)throw new Error('云端读取失败 '+r.status);
+  const j=await r.json();
+  const data=JSON.parse(decodeURIComponent(escape(atob(j.content.replace(/\s/g,'')))));
+  localStorage.setItem(localKey(KEY),JSON.stringify(data.records||[]));
+  localStorage.setItem(localKey(KEY_W),JSON.stringify(data.weight||[]));
+  localStorage.setItem(localKey(KEY_TYPES),JSON.stringify(data.types||DEF_TYPES.slice()));
+  localStorage.setItem(localKey(KEY_GOAL),JSON.stringify(data.goal||{}));
 }
 
 const DEF_GOAL={weeklyCount:4,weeklyDuration:240,monthlyCalories:4000,monthlyCount:16};
@@ -915,7 +917,7 @@ document.getElementById('refreshBtn').addEventListener('click',async()=>{
     await cloudPull();
     renderHistory();renderHome();refreshTypeList();renderGoal();
     toast('✅ 已从云端刷新数据');
-  }catch(e){toast('⚠ 刷新失败，请检查网络或令牌');}
+  }catch(e){toast('⚠ '+(e&&e.message?e.message:'刷新失败，请检查网络或令牌'));}
   finally{btn.disabled=false;btn.textContent='🔄 刷新数据';}
 });
 document.getElementById('exportBtn').addEventListener('click',()=>{
@@ -1065,7 +1067,8 @@ document.getElementById('authForm').addEventListener('submit',async e=>{
     let users=[];
     const uMeta=await giteeGetMeta(USER_FILE);
     if(uMeta){ users=await giteeGet(USER_FILE); if(!Array.isArray(users))users=users.users||[]; }
-    const exists=users.find(u=>u.user.toLowerCase()===user.toLowerCase());
+    // 保留大小写：索引查重区分大小写（Harbo 与 harbo 视为不同用户），路径用原始输入天然区分
+    const exists=users.find(u=>u.user===user);
     if(exists){
       // 已注册 → 登录校验（密码错误 → 模态弹窗，需点击关闭）
       if(exists.pass!==pass){
@@ -1073,7 +1076,7 @@ document.getElementById('authForm').addEventListener('submit',async e=>{
         showModal('登录失败','密码错误，请检查后重试。');
         return;
       }
-      SESSION={user,passHash};
+      SESSION={user:exists.user,passHash};   // 用索引记录的规范大小写，保证后续路径一致
     }else{
       // 未注册 → 注册：写入索引（明文密码）+ 建个人数据文件（若已存在则不覆盖，防老用户数据丢失）
       users.push({user,pass,createdAt:fmtDate(new Date())});
@@ -1113,7 +1116,7 @@ document.getElementById('mineRefresh').addEventListener('click',async()=>{
     await cloudPull();
     renderHistory();renderHome();refreshTypeList();renderGoal();
     toast('✅ 已从云端刷新数据');
-  }catch(e){toast('⚠ 刷新失败，请检查网络或令牌');}
+  }catch(e){toast('⚠ '+(e&&e.message?e.message:'刷新失败，请检查网络或令牌'));}
   finally{btn.disabled=false;btn.textContent='⬇ 从云端刷新数据';}
 });
 // 检查升级：强制 SW 检查最新版本

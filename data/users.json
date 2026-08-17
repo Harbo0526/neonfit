@@ -1,14 +1,3 @@
 {
-  "users": [
-    {
-      "user": "harbo2",
-      "pass": "123456789",
-      "createdAt": "2026-08-17"
-    },
-    {
-      "user": "harbo",
-      "pass": "123456789",
-      "createdAt": "2026-08-17"
-    }
-  ]
+  "users": []
 }
