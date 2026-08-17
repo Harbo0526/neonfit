@@ -1,6 +1,16 @@
 {
   "pass": "9995b6aa",
-  "records": [],
+  "records": [
+     {
+      "id": 1786947222791,
+      "type": "健身操",
+      "duration": 60,
+      "calories": 390,
+      "distance": 0,
+      "date": "2026-08-17",
+      "note": "好"
+    }
+  ],
   "weight": [],
   "types": [
     "跑步",
